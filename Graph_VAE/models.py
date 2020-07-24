@@ -49,7 +49,7 @@ class GCN(Module):
 
 
 class GCNEncoder(nn.Module):
-    def __init__(self, emb_size, hidden_dim, layer_num):
+    def __init__(self, emb_size, hidden_dim, layer_num=2):
         super(GCNEncoder, self).__init__()
         self.act = nn.ReLU()
         self.gc_top = GCN(emb_size, hidden_dim)
@@ -75,7 +75,7 @@ class GCNEncoder(nn.Module):
 
 
 class VanillaDecoder(nn.Module):
-    def __init__(self, dropout=0.):
+    def __init__(self, dropout=0.5):
         """
         InnerProductDecoder definition.
         :param dropout: probability to randomly zero some of the elements from a Bernoulli distribution.
@@ -85,8 +85,22 @@ class VanillaDecoder(nn.Module):
         self.dropout = dropout
 
     def forward(self, x):
-        inputs_row = F.dropout(x, p=self.dropout)
-        inputs_col = F.dropout(x, p=self.dropout)
-        rec = torch.mm(inputs_row, inputs_col.permute(1, 0))
-        return rec
+        x = F.dropout(x, p=self.dropout)
+        rec = torch.mm(x, x.permute(1, 0))
+        return self.act(rec)
 
+
+class MLPDecoder(nn.Module):
+    def __init__(self, input_dim, hidden_dim=16, dropout=0.5):
+        super(MLPDecoder, self).__init__()
+        self.act = nn.Sigmoid()
+        self.dropout = dropout
+        self.decode = nn.Sequential(nn.Linear(input_dim, hidden_dim),
+                                    nn.BatchNorm1d(hidden_dim),
+                                    nn.ReLU())
+
+    def forward(self, x):
+        x = F.dropout(x, p=self.dropout)
+        x = self.decode(x)
+        rec = torch.mm(x, x.permute(1, 0))
+        return self.act(x)
