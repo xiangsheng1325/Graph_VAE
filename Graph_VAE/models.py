@@ -91,7 +91,7 @@ class VanillaDecoder(nn.Module):
 
 
 class MLPDecoder(nn.Module):
-    def __init__(self, input_dim, hidden_dim, dropout=0.5):
+    def __init__(self, input_dim, hidden_dim=16, dropout=0.5):
         super(MLPDecoder, self).__init__()
         self.act = nn.Sigmoid()
         self.dropout = dropout
