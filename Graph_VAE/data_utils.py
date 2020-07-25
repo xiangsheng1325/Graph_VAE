@@ -114,3 +114,98 @@ def gen_graph(model, n, e, attr_vec, z_size, opt):
     # print("the shape of attr_gen2: {}".format(fixed_noise.data.cpu().numpy().shape))
     rec_adj = model.decoder(fixed_noise)
     return topk_adj(F.sigmoid(rec_adj), e * 2)
+
+
+def load_data(DATA_FILEPATH='ENZYMES_587.graphs', split=False):
+    data_dict = pickle.load(open(DATA_FILEPATH, 'rb'))
+    adj_mats = data_dict['adj_mats']
+    attr_vecs = data_dict['attr_vecs']
+    if split:
+        train_adj_mats = adj_mats[:int(len(adj_mats) * .8)]
+        train_attr_vecs = attr_vecs[:int(len(attr_vecs) * .8)]
+    else:
+        train_adj_mats = adj_mats
+        train_attr_vecs = attr_vecs
+    test_adj_mats = adj_mats[int(len(adj_mats) * .8):]
+    test_attr_vecs = attr_vecs[int(len(attr_vecs) * .8):]
+    return train_adj_mats, test_adj_mats, train_attr_vecs, test_attr_vecs
+
+
+def load_dblp_data(DATA_DIR):
+    # script for loading NWE dblp
+    # folder structure
+    # - this.ipynb
+    # - $DATA_DIR - *.txt
+
+    mat_names = []  # e.g. GSE_2304
+    adj_mats = []  # essential data, type: list(np.ndarray)
+    attr_vecs = []  # essential data, type: list(np.ndarray)
+    id_maps = []  # map index to gene name if you need
+
+    for f in os.listdir(DATA_DIR):
+        if not f.startswith(('nodes', 'links', 'attrs')):
+            continue
+        else:
+            mat_names.append('_'.join(f.split('.')[0].split('_')[1:]))
+    mat_names = sorted([it for it in set(mat_names)])
+    print('Test length', len(mat_names))
+    for mat_name in mat_names:
+        node_file = 'nodes_' + mat_name + '.txt'
+        link_file = 'links_' + mat_name + '.txt'
+        attr_file = 'attrs_' + mat_name + '.txt'
+        node_file_path = os.path.join(DATA_DIR, node_file)
+        link_file_path = os.path.join(DATA_DIR, link_file)
+        attr_file_path = os.path.join(DATA_DIR, attr_file)
+
+        id_to_item = {}
+        with open(node_file_path, 'r') as f:
+            for i, line in enumerate(f):
+                author = line.rstrip('\n')
+                id_to_item[i] = author
+        all_ids = set(id_to_item.keys())
+
+        with open(attr_file_path, 'r') as f:
+            attr_vec = np.loadtxt(f).T.flatten()
+            attr_vecs.append(attr_vec)
+
+        links = defaultdict(set)
+        with open(link_file_path, 'r') as f:
+            for line in f:
+                cells = line.rstrip('\n').split(',')
+                from_id = int(cells[0])
+                to_id = int(cells[1])
+                if from_id in all_ids and to_id in all_ids:
+                    links[from_id].add(to_id)
+
+        N = len(all_ids)
+        adj = np.zeros((N, N))
+        for from_id in range(N):
+            for to_id in links[from_id]:
+                adj[from_id, to_id] = 1
+                adj[to_id, from_id] = 1
+
+        adj -= np.diag(np.diag(adj))
+        id_map = [id_to_item[i] for i in range(N)]
+
+        # Remove small component
+        # adj = remove_small_conns(adj, keep_min_conn=4)
+
+        # Keep large component
+        adj = keep_topk_conns(adj, k=1)
+        adj_mats.append(adj)
+        id_maps.append(id_map)
+
+        if int(np.sum(adj)) == 0:
+            adj_mats.pop(-1)
+            id_maps.pop(-1)
+            mat_names.pop(-1)
+            attr_vecs.pop(-1)
+
+    # train_adj_mats = adj_mats[:int(len(adj_mats) * .8)]
+    train_adj_mats = adj_mats[:int(len(adj_mats))]
+    test_adj_mats = adj_mats[int(len(adj_mats) * .8):]
+    # train_attr_vecs = attr_vecs[:int(len(attr_vecs) * .8)]
+    train_attr_vecs = attr_vecs[:int(len(attr_vecs))]
+    test_attr_vecs = attr_vecs[int(len(attr_vecs) * .8):]
+    return train_adj_mats, test_adj_mats, train_attr_vecs, test_attr_vecs
+
