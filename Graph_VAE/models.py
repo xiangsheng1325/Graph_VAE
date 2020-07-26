@@ -53,8 +53,15 @@ class GCNEncoder(nn.Module):
         super(GCNEncoder, self).__init__()
         self.act = nn.ReLU()
         self.gc_top = GCN(emb_size, hidden_dim)
-        self.gc_medium = [GCN(hidden_dim, hidden_dim) for i in range(layer_num-2)]
-        self.gc_bottom = GCN(hidden_dim, hidden_dim)
+        self.gc_medium = [GCN(hidden_dim, hidden_dim) for i in range(layer_num-1)]
+        self.mean = nn.Sequential(nn.Linear(hidden_dim, hidden_dim//2),
+                                  nn.BatchNorm1d(hidden_dim//2),
+                                  nn.ReLU(),
+                                  nn.Linear(hidden_dim//2, hidden_dim//2))
+        self.logvar = nn.Sequential(nn.Linear(hidden_dim, hidden_dim//2),
+                                    nn.BatchNorm1d(hidden_dim//2),
+                                    nn.ReLU(),
+                                    nn.Linear(hidden_dim//2, hidden_dim//2))
 
     def forward(self, x, adj, normalized=True):
         """
@@ -70,8 +77,9 @@ class GCNEncoder(nn.Module):
         for gcn in self.gc_medium:
             x = gcn(x, adj)
             x = self.act(x)
-        x = self.gc_bottom(x, adj)
-        return self.act(x)
+        mean = self.mean(x)
+        logvar = self.logvar(x)
+        return mean, logvar
 
 
 class VanillaDecoder(nn.Module):
@@ -103,4 +111,4 @@ class MLPDecoder(nn.Module):
         x = F.dropout(x, p=self.dropout)
         x = self.decode(x)
         rec = torch.mm(x, x.permute(1, 0))
-        return self.act(x)
+        return self.act(rec)
