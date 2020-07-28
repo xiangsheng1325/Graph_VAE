@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn.parameter import Parameter
 import math
+from Graph_VAE.data_utils import normalize, get_embedding
 # models
 # GCN
 
@@ -141,7 +142,7 @@ class GraphVAE(nn.Module):
     def remove_eye(self, adj):
         adj_ = adj
         assert ((adj_ == adj_.T).all())
-        adj_ -= torch.diag(torch.diag(adjj))
+        adj_ -= torch.diag(torch.diag(adj_))
         return adj_
 
     def forward(self, adj, x=None, normalized=True, training=True):

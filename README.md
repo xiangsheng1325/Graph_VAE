@@ -1,7 +1,7 @@
 # Graph_VAE
 An implement of variational auto-encoder graph generative model.
 
-Thesis: [Variational Graph Auto-Encoders](arxiv.org/abs/1611.07308)
+Thesis: [Variational Graph Auto-Encoders](http://arxiv.org/abs/1611.07308)
 ## requirements
 - python==3.6
 - torch==1.5.0

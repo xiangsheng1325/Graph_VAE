@@ -1,24 +1,10 @@
-import os
-import igraph
-import powerlaw
-import pandas as pd
-import scipy.sparse as sp
-import random
-import numpy as np
 import time
 import warnings
-from collections import defaultdict
 import torch.optim as optim
-from sklearn.manifold import SpectralEmbedding
-import copy
-import matplotlib.pyplot as plt
-import networkx as nx
 import pprint
-from scipy.sparse.csgraph import connected_components
 from Graph_VAE.data_utils import *
 from Graph_VAE.models import *
 from Graph_VAE.train import *
-from Graph_VAE.eval_utils import *
 from Graph_VAE.Options import *
 warnings.filterwarnings("ignore")
 
@@ -33,7 +19,6 @@ def timelog(func):
     print("This is a time logger.")
 
     def printtime(*args, **argv):
-        import time
         t1 = time.time()
         print("Start time: {}".format(time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(t1))))
         returns = func(*args, **argv)
