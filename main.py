@@ -17,6 +17,7 @@ import pprint
 from scipy.sparse.csgraph import connected_components
 from Graph_VAE.data_utils import *
 from Graph_VAE.models import *
+from Graph_VAE.train import *
 from Graph_VAE.eval_utils import *
 from Graph_VAE.Options import *
 warnings.filterwarnings("ignore")
