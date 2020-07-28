@@ -1,3 +1,5 @@
+import pickle
+
 def get_spectral_emb(adj, max_size):
     """
     Given adj is N*N, return its feature mat N*D, D is fixed in model
