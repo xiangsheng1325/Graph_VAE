@@ -33,7 +33,7 @@ class GCN(Module):
         margin = 1. / math.sqrt(self.W.size(1))
         self.W.data.uniform_(-margin, margin)
         if self.b is not None:
-            self.b.data.uniform_(-margin.margin)
+            self.b.data.uniform_(-margin, margin)
 
     def forward(self, inputs, adj):
         """
@@ -42,6 +42,8 @@ class GCN(Module):
         :param adj:  adjacent matrix
         :return: output of GCN layer
         """
+        # print("Type of inputs: {}".format(type(inputs)))
+        # print("Type of weights: {}".format(type(self.W)))
         support = torch.mm(inputs, self.W)
         # output = torch._sparse_mm(adj, support)
         output = torch.spmm(adj, support)
@@ -62,7 +64,7 @@ class GCNEncoder(nn.Module):
         super(GCNEncoder, self).__init__()
         self.act = nn.ReLU()
         self.gc_top = GCN(emb_size, hidden_dim)
-        self.gc_medium = [GCN(hidden_dim, hidden_dim) for i in range(layer_num-1)]
+        self.gc_medium = nn.ModuleList([GCN(hidden_dim, hidden_dim) for i in range(layer_num-1)])
         self.mean = nn.Sequential(nn.Linear(hidden_dim, hidden_dim//2),
                                   nn.ReLU(),
                                   nn.Linear(hidden_dim//2, hidden_dim//2))
@@ -70,10 +72,12 @@ class GCNEncoder(nn.Module):
                                     nn.ReLU(),
                                     nn.Linear(hidden_dim//2, hidden_dim//2))
         for m in self.modules():
+            # print(m)
             if isinstance(m, nn.Linear):
                 m.weight.data = init.xavier_uniform(m.weight.data, gain=nn.init.calculate_gain('relu'))
             elif isinstance(m, GCN):
-                m.W.data = init.xavier_uniform(m.W.data, gain=nn.init.calculate_gain('relu'))
+                m.reset_parameters()
+                # m.W.data = init.xavier_uniform(m.W.data, gain=nn.init.calculate_gain('relu'))
 
     def forward(self, x, adj, normalized=True):
         """
@@ -135,11 +139,12 @@ class GraphVAE(nn.Module):
         self.encoder = GCNEncoder(emb_size=emb_size,
                                   hidden_dim=encode_dim,
                                   layer_num=layer_num)
-        self.decoder = MLPDecoder(input_dim=encode_dim,
+        self.decoder = MLPDecoder(input_dim=encode_dim//2,
                                   hidden_dim=decode_dim,
                                   dropout=dropout)
 
-    def remove_eye(self, adj):
+    @staticmethod
+    def remove_eye(adj):
         adj_ = adj
         assert ((adj_ == adj_.T).all())
         adj_ -= torch.diag(torch.diag(adj_))
@@ -148,7 +153,6 @@ class GraphVAE(nn.Module):
     def forward(self, adj, x=None, normalized=True, training=True):
         if x is None:
             x = get_embedding(adj, max_size=8, method='spectral')
-
         mean, logvar = self.encoder(x, adj, normalized)
         noise = torch.randn(mean.shape, requires_grad=True).cuda()
         std = logvar.mul(0.5).exp_()
@@ -158,15 +162,16 @@ class GraphVAE(nn.Module):
                 prior_loss = 1 + logvar[j, :] - mean[j, :].pow(2) - logvar[j, :].exp()
                 # torch.numel refers to the total number of elements in the tensor, instead of the sum of elements.
                 prior_loss = (-0.5 * torch.sum(prior_loss)) / torch.numel(mean[j, :].data)
+                # print("prior loss: {}".format(prior_loss.data))
                 pl.append(prior_loss)
             loss_kl = sum(pl)
             x = mean + std * noise
             rec_adj = self.decoder(x)
-            rec_adj = self.remove_eye(rec_adj)
+            # rec_adj = self.remove_eye(rec_adj)
             binary_cross_entropy = nn.BCELoss()
             binary_cross_entropy.cuda()
-            loss_rec = binary_cross_entropy(rec_adj, Variable(torch.tensor(adj)).cuda())
-            return loss_kl+loss_rec
+            loss_rec = binary_cross_entropy(rec_adj, adj)
+            return loss_kl, loss_rec
         else:
             x = mean
             rec_adj = self.decoder(x)

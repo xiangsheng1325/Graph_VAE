@@ -21,6 +21,9 @@ class SimpleOpt():
         self.gamma = 15
         self.gpu = '2'
         self.mbs = 16
+        self.batch_size = 56
+        self.graph_type = 'ENZYMES'
+        self.epochs_log = 1
         # self.DATA_DIR = './data/dblp/'
         # self.output_dir = './output/'
 
