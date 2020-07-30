@@ -30,9 +30,9 @@ def timelog(func):
 if __name__ == "__main__":
     opt = get_options()
     ##{ 临时改超参数
-    opt.gpu = '0'
+    opt.gpu = '2'
     opt.cond_size = 0
-    opt.max_epochs = 1800
+    opt.max_epochs = 50
     opt.gamma = 500
     opt.data_dir = "./data/ENZYMES_20-50_res.graphs"
     ## 正式训练时收起 }
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     train_adj_mats, test_adj_mats, train_attr_vecs, test_attr_vecs = load_data(
         DATA_FILEPATH=opt.data_dir)
     with torch.autograd.set_detect_anomaly(True):
-        train(
+        trained_model = train(
             opt=opt,
             train_adj_mats=train_adj_mats
         )

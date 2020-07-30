@@ -4,6 +4,7 @@ import torch.nn.init as init
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+from sklearn.metrics import confusion_matrix
 from torch.nn.parameter import Parameter
 import math
 from Graph_VAE.data_utils import normalize, get_embedding
@@ -120,8 +121,7 @@ class MLPDecoder(nn.Module):
         super(MLPDecoder, self).__init__()
         self.act = nn.Sigmoid()
         self.dropout = dropout
-        self.decode = nn.Sequential(nn.Linear(input_dim, hidden_dim),
-                                    nn.ReLU())
+        self.decode = nn.Linear(input_dim, hidden_dim)
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 m.weight.data = init.xavier_uniform(m.weight.data, gain=nn.init.calculate_gain('relu'))
@@ -150,6 +150,17 @@ class GraphVAE(nn.Module):
         adj_ -= torch.diag(torch.diag(adj_))
         return adj_
 
+    @staticmethod
+    def calc_metric(y_pred, y_true):
+        eps = 1e-5
+        if isinstance(y_pred, torch.Tensor):
+            y_pred = (y_pred*2-eps).int()
+            y_pred = y_pred.data.cpu().numpy().reshape(-1).tolist()
+        if isinstance(y_true, torch.Tensor):
+            y_true = y_true.int()
+            y_true = y_true.data.cpu().numpy().reshape(-1).tolist()
+        return confusion_matrix(y_true, y_pred)
+
     def forward(self, adj, x=None, normalized=True, training=True):
         if x is None:
             x = get_embedding(adj, max_size=8, method='spectral')
@@ -171,7 +182,8 @@ class GraphVAE(nn.Module):
             binary_cross_entropy = nn.BCELoss()
             binary_cross_entropy.cuda()
             loss_rec = binary_cross_entropy(rec_adj, adj)
-            return loss_kl, loss_rec
+            confus_m = self.calc_metric(rec_adj, adj)
+            return loss_kl, loss_rec, confus_m
         else:
             x = mean
             rec_adj = self.decoder(x)
