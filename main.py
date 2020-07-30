@@ -31,9 +31,7 @@ if __name__ == "__main__":
     opt = get_options()
     ##{ 临时改超参数
     opt.gpu = '2'
-    opt.cond_size = 0
     opt.max_epochs = 50
-    opt.gamma = 500
     opt.data_dir = "./data/ENZYMES_20-50_res.graphs"
     ## 正式训练时收起 }
     os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpu

@@ -56,17 +56,26 @@ def train_vae_epoch(epoch, args, model, train_adj_mats, optimizer, scheduler):
     return loss_sum
 
 
-def train(opt, train_adj_mats):
+def test_epoch(model, test_adj_mats):
+    confus_all = np.array([[0, 0], [0, 0]])
+    for graph_index, adj in enumerate(test_adj_mats):
+        adj_ = Variable(torch.from_numpy(adj).float()).cuda()
+        rec_adj, confus_m = model(adj_, normalized=False, training=False)
+        confus_all = confus_all + confus_m
+    return confus_all
 
+
+def train(opt, train_adj_mats):
     model = GraphVAE(
-        emb_size=8,
-        encode_dim=16,
-        layer_num=2,
-        decode_dim=16,
-        dropout=0.5,
+        emb_size=opt.emb_size,
+        encode_dim=opt.encode_dim,
+        layer_num=opt.layer_num,
+        decode_dim=opt.decode_dim,
+        dropout=opt.dropout,
+        logits=opt.logits,
     ).cuda()
     optim_vae = optim.Adam(model.parameters(), lr=opt.lr)
-    scheduler_vae = MultiStepLR(optim_vae, milestones=[300, 700, 1200], gamma=0.3)
+    scheduler_vae = MultiStepLR(optim_vae, milestones=[100, 200, 300], gamma=0.3)
 
     for epoch in range(1, opt.max_epochs+1):
         train_vae_epoch(

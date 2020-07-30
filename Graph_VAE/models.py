@@ -121,7 +121,9 @@ class MLPDecoder(nn.Module):
         super(MLPDecoder, self).__init__()
         self.act = nn.Sigmoid()
         self.dropout = dropout
-        self.decode = nn.Linear(input_dim, hidden_dim)
+        self.decode = nn.Sequential(nn.Linear(input_dim, hidden_dim),
+                                    nn.ReLU(),
+                                    nn.Linear(hidden_dim, hidden_dim//2))
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 m.weight.data = init.xavier_uniform(m.weight.data, gain=nn.init.calculate_gain('relu'))
@@ -134,7 +136,7 @@ class MLPDecoder(nn.Module):
 
 
 class GraphVAE(nn.Module):
-    def __init__(self, emb_size, encode_dim, layer_num, decode_dim, dropout):
+    def __init__(self, emb_size, encode_dim, layer_num, decode_dim, dropout, logits):
         super(GraphVAE, self).__init__()
         self.encoder = GCNEncoder(emb_size=emb_size,
                                   hidden_dim=encode_dim,
@@ -142,6 +144,7 @@ class GraphVAE(nn.Module):
         self.decoder = MLPDecoder(input_dim=encode_dim//2,
                                   hidden_dim=decode_dim,
                                   dropout=dropout)
+        self.logits = logits
 
     @staticmethod
     def remove_eye(adj):
@@ -161,7 +164,7 @@ class GraphVAE(nn.Module):
             y_true = y_true.data.cpu().numpy().reshape(-1).tolist()
         return confusion_matrix(y_true, y_pred)
 
-    def forward(self, adj, x=None, normalized=True, training=True):
+    def forward(self, adj, x=None, normalized=True, training=True, with_logits=True):
         if x is None:
             x = get_embedding(adj, max_size=8, method='spectral')
         mean, logvar = self.encoder(x, adj, normalized)
@@ -179,7 +182,11 @@ class GraphVAE(nn.Module):
             x = mean + std * noise
             rec_adj = self.decoder(x)
             # rec_adj = self.remove_eye(rec_adj)
-            binary_cross_entropy = nn.BCELoss()
+            if with_logits:
+                neg_weight = self.logits
+                binary_cross_entropy = nn.BCEWithLogitsLoss(pos_weight=torch.ones(1)*neg_weight)
+            else:
+                binary_cross_entropy = nn.BCELoss()
             binary_cross_entropy.cuda()
             loss_rec = binary_cross_entropy(rec_adj, adj)
             confus_m = self.calc_metric(rec_adj, adj)
@@ -187,6 +194,7 @@ class GraphVAE(nn.Module):
         else:
             x = mean
             rec_adj = self.decoder(x)
-            return rec_adj
+            confus_m = self.calc_metric(rec_adj, adj)
+            return rec_adj, confus_m
 
 
