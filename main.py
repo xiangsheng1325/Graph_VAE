@@ -30,8 +30,10 @@ def timelog(func):
 if __name__ == "__main__":
     opt = get_options()
     ##{ 临时改超参数
-    opt.gpu = '2'
-    opt.max_epochs = 50
+    opt.gpu = '0'
+    opt.max_epochs = 40
+    opt.logits = 1
+    opt.batch_size = 1
     opt.data_dir = "./data/ENZYMES_20-50_res.graphs"
     ## 正式训练时收起 }
     os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpu
